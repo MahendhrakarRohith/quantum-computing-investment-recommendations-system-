@@ -45,7 +45,7 @@ Click the green "Commit changes..." button at the top right.
 Here is your Enterprise-Grade README. It is packed with professional badges, architecture breakdowns, and clear instructions:
 
 Markdown
-# 🍌 Nano Banana: Quantum-Enhanced AI Investment Terminal
+# Quantum-Enhanced AI Investment Terminal
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)
