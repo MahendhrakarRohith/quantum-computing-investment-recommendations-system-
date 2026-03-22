@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nano Banana | Institutional Terminal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0B0E14;
+            --panel-bg: #151A22;
+            --border: #2A3241;
+            --text-main: #F8FAFC;
+            --text-muted: #64748B;
+            --accent: #3B82F6;
+            --accent-hover: #2563EB;
+            --green: #10B981;
+            --red: #EF4444;
+            --yellow: #F59E0B;
+        }
+
+        * { box-sizing: border-box; }
+
+        body { 
+            font-family: 'Inter', sans-serif; background: var(--bg-base); color: var(--text-main); 
+            margin: 0; padding: 2rem; min-height: 100vh;
+        }
+
+        .dashboard-wrapper { max-width: 1300px; margin: 0 auto; }
+
+        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 2rem; }
+        .logo-box {
+            width: 48px; height: 48px; background: linear-gradient(135deg, var(--green), var(--accent));
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 1.4rem; color: #fff; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+        }
+        .brand-title { font-size: 1.8rem; margin: 0; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+        .brand-subtitle { font-size: 0.8rem; color: var(--text-muted); letter-spacing: 0.15em; font-weight: 500; }
+
+        .grid-layout { display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem; align-items: start; }
+
+        .panel { 
+            background: var(--panel-bg); border: 1px solid var(--border); 
+            border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;
+        }
+
+        .panel-title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.5rem;}
+        .big-value { font-size: 2.2rem; font-weight: 900; transition: color 0.3s; }
+        
+        .btn { 
+            background: var(--accent); color: white; border: none; padding: 0.8rem 1.5rem; 
+            border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-green { background: var(--green); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
+        .btn-green:hover { background: #059669; }
+
+        .watchlist-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0;
+            border-bottom: 1px solid var(--border); cursor: pointer; transition: all 0.2s;
+        }
+        .watchlist-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .watchlist-item:hover { color: var(--accent); padding-left: 5px; }
+
+        .chart-container { position: relative; height: 320px; width: 100%; }
+
+        .news-item { padding: 1.2rem 0; border-bottom: 1px solid var(--border); }
+        .news-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .news-title { color: var(--text-main); text-decoration: none; font-weight: 500; font-size: 1rem; line-height: 1.4; display: block; margin-bottom: 0.5rem; transition: color 0.2s; }
+        .news-title:hover { color: var(--accent); }
+        .news-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
+
+        .scanner-panel { border: 1px solid var(--green); background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%); }
+        .rec-box { display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+        .reason-box { font-size: 0.85rem; line-height: 1.6; color: #cbd5e1; background: #0B0E14; padding: 1rem; border-radius: 8px; margin-top: 1rem; border: 1px solid var(--border); }
+        
+        .confidence-track { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .confidence-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); transition: width 1.5s ease-in-out; }
+
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spinner { animation: spin 1s linear infinite; display: none; margin-right: 8px; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <div class="header">
+            <div class="logo-box">NB</div>
+            <div>
+                <h1 class="brand-title">INVEST<span style="color: var(--accent); font-weight: 500;">// INSTITUTIONAL</span></h1>
+                <div class="brand-subtitle">QUANTITATIVE AI ENGINE // {{ ticker }}</div>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <div class="left-col" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <div class="panel">
+                    <div class="panel-title" style="color: var(--accent);">📊 Active Asset: {{ ticker }}</div>
+                    <div>
+                        <div class="panel-title">Live Market Price</div>
+                        <div id="live-price" class="big-value" style="font-size: 1.8rem;">₹{{ current_price }}</div>
+                    </div>
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <div class="panel-title">AI Base Signal</div>
+                        <div class="big-value" style="font-size: 1.4rem; color: var(--accent);">{{ recommendation }}</div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title" style="color: var(--accent);">🔥 Sector Watchlist</div>
+                    
+                    <div class="watchlist-item" onclick="window.location.href='/?symbol=RELIANCE-EQ';">
+                        <span class="watchlist-symbol">RELIANCE</span>
+                        <span class="watchlist-action">Load Data ⚡</span>
+                    </div>
+                    <div class="watchlist-item" onclick="window.location.href='/?symbol=TCS-EQ';">
+                        <span class="watchlist-symbol">TCS</span>
+                        <span class="watchlist-action">Load Data ⚡</span>
+                    </div>
+                    <div class="watchlist-item" onclick="window.location.href='/?symbol=HDFCBANK-EQ';">
+                        <span class="watchlist-symbol">HDFCBANK</span>
+                        <span class="watchlist-action">Load Data ⚡</span>
+                    </div>
+                </div>
+
+                <div class="panel scanner-panel">
+                    <div class="panel-title" style="color: var(--green);">🤖 Full-Market Auto Scan</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin: 0 0 1rem 0;">Find the #1 asset mathematically predicted to grow, with risk-management included.</p>
+                    
+                    <button class="btn btn-green" id="discover-btn" onclick="discoverBestStock()">
+                        <span class="spinner" id="discover-spinner">🌀</span> EXECUTE AI SCAN
+                    </button>
+
+                    <div id="recommendation-box" class="rec-box">
+                        <div class="panel-title" style="color: var(--green);">🏆 Top Probable Asset</div>
+                        <div class="big-value" id="rec-symbol" style="margin-bottom: 1rem; font-size: 1.8rem;">--</div>
+                        
+                        <div style="display: flex; gap: 2rem; margin-bottom: 1.5rem;">
+                            <div>
+                                <div class="panel-title">Current</div>
+                                <div style="font-weight: 700; font-size: 1.1rem;" id="rec-price">--</div>
+                            </div>
+                            <div>
+                                <div class="panel-title">Target</div>
+                                <div style="font-weight: 700; font-size: 1.1rem; color: var(--accent);" id="rec-target">--</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div class="panel-title">Ensemble Confidence</div>
+                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent);" id="rec-confidence-text">--%</div>
+                            </div>
+                            <div class="confidence-track">
+                                <div class="confidence-fill" id="rec-confidence-bar"></div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 1rem; color: var(--green); font-weight: 700; font-size: 0.9rem;" id="rec-upside">-- Upside</div>
+                        <div style="margin-top: 0.5rem; color: var(--red); font-weight: 700; font-size: 0.85rem;" id="rec-stop-loss">🛑 Risk Stop-Loss: --</div>
+
+                        <div class="reason-box" id="rec-reason">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-col" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div class="panel">
+                    <div class="panel-title">High-Frequency Tick Data</div>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel" style="flex-grow: 1;">
+                    <div class="panel-title" id="news-header">Global Catalysts & News: {{ ticker }}</div>
+                    <div class="news-feed">
+                        {% for article in news %}
+                            <div class="news-item">
+                                <a href="{{ article.url }}" target="_blank" class="news-title">{{ article.title }}</a>
+                                <div class="news-meta">
+                                    <span>📰 {{ article.source }}</span>
+                                    <span>{{ article.date }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="news-item">
+                                <p style="color: var(--text-muted); font-size: 0.9rem;">No verified company news in the last 30 days.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const priceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], 
+                datasets: [{
+                    label: 'Live Price',
+                    data: [],
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    borderWidth: 2, fill: true, tension: 0.2, pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { display: false }, y: { grid: { color: '#2A3241' }, ticks: { color: '#64748B', font: {family: 'Inter'} } } },
+                plugins: { legend: { display: false } }, animation: false 
+            }
+        });
+
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const priceTag = document.getElementById("live-price");
+        let lastPrice = parseFloat("{{ current_price }}".replace(/,/g, ''));
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.price) {
+                const newPrice = data.price;
+                const time = new Date().toLocaleTimeString();
+
+                priceTag.innerText = "₹" + newPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                priceTag.style.color = newPrice >= lastPrice ? "var(--green)" : "var(--red)";
+                setTimeout(() => { priceTag.style.color = "var(--text-main)"; }, 400);
+                lastPrice = newPrice;
+
+                priceChart.data.labels.push(time);
+                priceChart.data.datasets[0].data.push(newPrice);
+
+                if (priceChart.data.labels.length > 25) {
+                    priceChart.data.labels.shift();
+                    priceChart.data.datasets[0].data.shift();
+                }
+                priceChart.update('none'); 
+            }
+        };
+
+        async function discoverBestStock() {
+            const btn = document.getElementById('discover-btn');
+            const spinner = document.getElementById('discover-spinner');
+            const recBox = document.getElementById('recommendation-box');
+
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            recBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/discover');
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    document.getElementById('rec-symbol').innerText = data.symbol;
+                    document.getElementById('rec-price').innerText = "₹" + data.current_price.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('rec-target').innerText = "₹" + data.target_price.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('rec-upside').innerText = "+" + data.upside.toFixed(2) + "% Target Upside";
+                    document.getElementById('rec-reason').innerText = data.reason;
+                    
+                    const confMatch = data.reason ? data.reason.match(/([0-9.]+)%\s*confidence/i) : null;
+                    const slMatch = data.reason ? data.reason.match(/Stop-Loss\s*at\s*₹?([0-9.,]+)/i) : null;
+                    
+                    if (confMatch) {
+                        document.getElementById('rec-confidence-text').innerText = confMatch[1] + "%";
+                        document.getElementById('rec-confidence-bar').style.width = confMatch[1] + "%";
+                    } else {
+                        document.getElementById('rec-confidence-text').innerText = "N/A (Recalculating)";
+                        document.getElementById('rec-confidence-bar').style.width = "0%";
+                    }
+
+                    if (slMatch) {
+                        document.getElementById('rec-stop-loss').innerText = "🛑 Risk Stop-Loss: ₹" + parseFloat(slMatch[1].replace(/,/g, '')).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    } else {
+                        document.getElementById('rec-stop-loss').innerText = "🛑 Risk Stop-Loss: Pending DB Update";
+                    }
+
+                    recBox.style.display = 'block';
+                    document.getElementById('news-header').innerText = `Global Catalysts & News: ${data.symbol}`;
+                    const newsContainer = document.querySelector('.news-feed');
+                    newsContainer.innerHTML = ''; 
+
+                    if (data.news && data.news.length > 0) {
+                        data.news.forEach(article => {
+                            newsContainer.innerHTML += `
+                                <div class="news-item">
+                                    <a href="${article.url}" target="_blank" class="news-title">${article.title}</a>
+                                    <div class="news-meta">
+                                        <span>📰 ${article.source}</span>
+                                        <span>${article.date}</span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        newsContainer.innerHTML = `<div class="news-item"><p style="color: var(--text-muted); font-size: 0.9rem;">No verified company news in the last 30 days.</p></div>`;
+                    }
+                }
+            } catch (err) {
+                alert("Failed to reach server. Ensure backend is running.");
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

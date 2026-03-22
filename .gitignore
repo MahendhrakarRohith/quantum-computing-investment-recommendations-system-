@@ -1,0 +1,14 @@
+# Security
+.env
+
+# Virtual Environments
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Databases (Let the script auto-generate these for new users)
+*.db
+*.sqlite3

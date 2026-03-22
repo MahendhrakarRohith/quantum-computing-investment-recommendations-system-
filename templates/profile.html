@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile | Quant Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkBg: '#0B0E14', panelBg: '#151A22', quantPurple: '#8B5CF6' } } }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .glass-panel { background: rgba(21, 26, 34, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body class="min-h-screen bg-darkBg text-slate-200 p-6 font-sans">
+
+    <div class="max-w-4xl mx-auto flex justify-between items-center mb-8">
+        <a href="/" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+            <i class="fas fa-arrow-left"></i> Back to Terminal
+        </a>
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-quantPurple flex items-center justify-center text-white font-bold text-sm shadow-[0_0_10px_rgba(139,92,246,0.5)]">
+                {{ username[0]|upper }}
+            </div>
+            <span class="font-mono text-sm tracking-widest text-white truncate max-w-[150px] sm:max-w-[250px]" title="{{ username }}">{{ username }}</span>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <div class="glass-panel p-6 rounded-xl md:col-span-1 h-fit">
+            <div class="text-center mb-6">
+                <div class="w-24 h-24 rounded-full bg-gray-800 mx-auto mb-4 flex items-center justify-center text-4xl text-gray-400 border-2 border-quantPurple shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+                    <i class="fas fa-user-astronaut"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white truncate w-full px-2" title="{{ username }}">{{ username }}</h2>
+                <p class="text-xs text-gray-500 font-mono mt-1">Quant Clearance: Level 1</p>
+            </div>
+
+            <div class="border-t border-gray-800 pt-6 mt-4">
+                <a href="/logout" class="w-full bg-red-500/10 border border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300 py-3 rounded-lg text-sm font-mono font-bold transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] flex justify-center items-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> TERMINATE SESSION
+                </a>
+            </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-xl md:col-span-2">
+            <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                <i class="fas fa-history text-quantPurple"></i> Terminal Activity Log
+            </h3>
+            <p class="text-xs text-gray-400 mb-6 font-mono border-b border-gray-800 pb-2">Recent searches and graph analytics.</p>
+
+            {% if history %}
+            <div class="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {% for item in history %}
+                <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-gray-800/50 hover:border-gray-700 transition-colors">
+                    <div class="flex items-center gap-4">
+                        {% if item.action == 'Searched Ticker' %}
+                            <div class="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs"><i class="fas fa-search"></i></div>
+                        {% else %}
+                            <div class="w-8 h-8 rounded-full bg-green-500/10 text-green-400 flex items-center justify-center text-xs"><i class="fas fa-chart-line"></i></div>
+                        {% endif %}
+                        <div>
+                            <div class="font-bold text-white text-sm tracking-wider">{{ item.symbol }}</div>
+                            <div class="text-xs text-gray-500 font-mono">{{ item.action }}</div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-600 font-mono text-right">
+                        {{ item.ts }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-10 text-gray-500">
+                <i class="fas fa-ghost text-4xl mb-3 opacity-20"></i>
+                <p class="text-sm font-mono">No activity detected yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

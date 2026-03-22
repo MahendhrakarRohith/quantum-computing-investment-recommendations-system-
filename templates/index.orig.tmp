@@ -1,0 +1,334 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nano Banana | Institutional Terminal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #05070d;
+            --bg-glow: radial-gradient(circle at 20% 20%, rgba(59,130,246,0.20), transparent 32%),
+                        radial-gradient(circle at 80% 10%, rgba(16,185,129,0.18), transparent 30%),
+                        radial-gradient(circle at 50% 80%, rgba(245,158,11,0.15), transparent 32%);
+            --panel: rgba(14,16,26,0.9);
+            --panel-border: #1f2737;
+            --text: #e8edf7;
+            --muted: #7b8499;
+            --accent: #4f8bff;
+            --accent-2: #7c3aed;
+            --green: #10b981;
+            --red: #ef4444;
+            --yellow: #f59e0b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 28px; min-height: 100vh;
+            background: var(--bg-base);
+            background-image: var(--bg-glow);
+            color: var(--text);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        .shell { max-width: 1320px; margin: 0 auto; position: relative; }
+        .hero { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+        .logo {
+            width: 56px; height: 56px; border-radius: 14px;
+            background: linear-gradient(135deg, #1dd1a1, #2563eb);
+            display: grid; place-items: center; font-family: 'Space Grotesk'; font-weight: 700; font-size: 1.3rem;
+            box-shadow: 0 15px 40px rgba(37,99,235,0.25);
+        }
+        .title { margin: 0; font-family: 'Space Grotesk'; letter-spacing: 0.08em; font-weight: 700; font-size: 1.9rem; }
+        .title span { color: var(--accent); font-weight: 600; }
+        .subtitle { margin-top: 4px; color: var(--muted); font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase; }
+        .badges { display: flex; gap: 10px; margin-top: 8px; }
+        .badge { padding: 6px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.03); }
+        .badge.live { color: var(--green); border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); }
+        .badge.q { color: #a78bfa; border-color: rgba(124,58,237,0.45); background: rgba(124,58,237,0.08); }
+
+        .grid { display: grid; grid-template-columns: 360px 1fr; gap: 18px; align-items: start; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
+        }
+        .panel + .panel { margin-top: 0; }
+        .section-title { font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+        .metric { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .metric .label { color: var(--muted); font-size: 0.9rem; }
+        .metric .value { font-size: 2rem; font-weight: 800; font-family: 'Space Grotesk'; }
+        .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; }
+        .pill.buy { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.35); }
+        .pill.hold { background: rgba(79,139,255,0.12); color: var(--accent); border: 1px solid rgba(79,139,255,0.35); }
+        .pill.sell { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.35); }
+
+        .cards { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+        .stat { padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); }
+        .stat .name { color: var(--muted); font-size: 0.82rem; margin: 0 0 6px; }
+        .stat .num { font-weight: 700; font-size: 1.15rem; }
+
+        .cta { margin-top: 6px; }
+        .btn { width: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; border: none; padding: 0.9rem 1.2rem; border-radius: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; box-shadow: 0 12px 30px rgba(79,139,255,0.35); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(124,58,237,0.28); }
+        .spinner { animation: spin 1s linear infinite; display: none; margin-right: 8px; }
+        @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+        .rec-box { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--panel-border); }
+        .confidence-track { width: 100%; height: 8px; background: #111826; border-radius: 6px; overflow: hidden; }
+        .confidence-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); transition: width 1.2s ease-in-out; }
+        .reason-box { margin-top: 12px; padding: 12px; border-radius: 10px; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.02); color: #cfd5e4; font-size: 0.9rem; line-height: 1.6; }
+
+        .chart-panel { height: 360px; }
+        .chart-container { position: relative; height: 100%; width: 100%; }
+
+        .news-item { padding: 12px 0; border-bottom: 1px solid var(--panel-border); }
+        .news-item:last-child { border-bottom: none; }
+        .news-title { color: var(--text); text-decoration: none; font-weight: 600; font-size: 1rem; line-height: 1.4; }
+        .news-title:hover { color: var(--accent); }
+        .news-meta { margin-top: 6px; color: var(--muted); font-size: 0.82rem; display: flex; justify-content: space-between; }
+
+        @media (max-width: 1024px) {
+            body { padding: 18px; }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="hero">
+            <div class="logo">NB</div>
+            <div>
+                <h1 class="title">INVEST <span>// INSTITUTIONAL</span></h1>
+                <div class="subtitle">QUANTITATIVE AI ENGINE // {{ ticker }}</div>
+                <div class="badges">
+                    <div class="badge live">● Live Ticks</div>
+                    <div class="badge q">⚛ Quantum-Assisted Signals</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="left-col" style="display:flex; flex-direction:column; gap:14px;">
+                <div class="panel">
+                    <p class="section-title">Active Asset</p>
+                    <div class="metric">
+                        <div>
+                            <div class="label">Live Market Price</div>
+                            <div id="live-price" class="value" style="font-size:1.8rem;">₹{{ current_price }}</div>
+                        </div>
+                        <div>
+                            <div class="label">AI Base Signal</div>
+                            <div class="pill {{ recommendation_class }}" id="ai-signal">{{ recommendation }}</div>
+                        </div>
+                    </div>
+                    <div class="cards" style="margin-top:14px;">
+                        <div class="stat">
+                            <p class="name">Sentiment</p>
+                            <p class="num">{{ sentiment }} ({{ sentiment_score }})</p>
+                        </div>
+                        <div class="stat">
+                            <p class="name">Ticker</p>
+                            <p class="num">{{ ticker }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel" style="border-color: rgba(16,185,129,0.35);">
+                    <p class="section-title" style="color: var(--green);">Full-Market Auto Scan</p>
+                    <p style="color: var(--muted); margin: 0 0 12px; font-size: 0.9rem;">Find the top asset with built-in risk controls.</p>
+                    <div class="cta">
+                        <button class="btn" id="discover-btn" onclick="discoverBestStock()">
+                            <span class="spinner" id="discover-spinner">🌐</span> Execute AI Scan
+                        </button>
+                    </div>
+
+                    <div id="recommendation-box" class="rec-box">
+                        <p class="section-title" style="color: var(--green);">Top Probable Asset</p>
+                        <div class="value" id="rec-symbol" style="font-size:1.9rem; margin-bottom:8px;">--</div>
+                        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                            <div class="stat" style="flex:1; min-width:140px;">
+                                <p class="name">Current</p>
+                                <p class="num" id="rec-price">--</p>
+                            </div>
+                            <div class="stat" style="flex:1; min-width:140px;">
+                                <p class="name">Target</p>
+                                <p class="num" id="rec-target" style="color: var(--accent);">--</p>
+                            </div>
+                        </div>
+                        <div style="margin:12px 0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span class="name" style="margin:0;">Ensemble Confidence</span>
+                                <span style="font-weight:700; color: var(--accent); font-size:0.9rem;" id="rec-confidence-text">--%</span>
+                            </div>
+                            <div class="confidence-track" style="margin-top:6px;">
+                                <div class="confidence-fill" id="rec-confidence-bar"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                            <div class="pill buy" id="rec-upside">-- Upside</div>
+                            <div class="pill sell" id="rec-stop-loss">🛑 Risk Stop-Loss: --</div>
+                        </div>
+                        <div class="reason-box" id="rec-reason">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-col" style="display:flex; flex-direction:column; gap:14px;">
+                <div class="panel chart-panel">
+                    <p class="section-title">High-Frequency Tick Data</p>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+                <div class="panel" style="flex:1;">
+                    <p class="section-title" id="news-header">Global Catalysts &amp; News: {{ ticker }}</p>
+                    <div class="news-feed">
+                        {% for article in news %}
+                            <div class="news-item">
+                                <a href="{{ article.url }}" target="_blank" class="news-title">{{ article.title }}</a>
+                                <div class="news-meta">
+                                    <span>📰 {{ article.source }}</span>
+                                    <span>{{ article.date }}</span>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="news-item">
+                                <p style="color: var(--muted); font-size: 0.9rem;">No verified company news in the last 30 days.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const priceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Live Price',
+                    data: [],
+                    borderColor: '#4f8bff',
+                    backgroundColor: 'rgba(79, 139, 255, 0.06)',
+                    borderWidth: 2.4,
+                    fill: true,
+                    tension: 0.28,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: false },
+                    y: { grid: { color: '#1f2737' }, ticks: { color: '#7b8499', font: { family: 'Inter' } } }
+                },
+                plugins: { legend: { display: false } },
+                animation: false
+            }
+        });
+
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const priceTag = document.getElementById('live-price');
+        let lastPrice = parseFloat("{{ current_price }}".replace(/,/g, ''));
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.price) {
+                const newPrice = data.price;
+                const time = new Date().toLocaleTimeString();
+
+                priceTag.innerText = "₹" + newPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                priceTag.style.color = newPrice >= lastPrice ? 'var(--green)' : 'var(--red)';
+                setTimeout(() => { priceTag.style.color = 'var(--text)'; }, 420);
+                lastPrice = newPrice;
+
+                priceChart.data.labels.push(time);
+                priceChart.data.datasets[0].data.push(newPrice);
+                if (priceChart.data.labels.length > 25) {
+                    priceChart.data.labels.shift();
+                    priceChart.data.datasets[0].data.shift();
+                }
+                priceChart.update('none');
+            }
+        };
+
+        async function discoverBestStock() {
+            const btn = document.getElementById('discover-btn');
+            const spinner = document.getElementById('discover-spinner');
+            const recBox = document.getElementById('recommendation-box');
+
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            recBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/discover');
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    document.getElementById('rec-symbol').innerText = data.symbol;
+                    document.getElementById('rec-price').innerText = "₹" + data.current_price.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('rec-target').innerText = "₹" + data.target_price.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('rec-upside').innerText = "+" + data.upside.toFixed(2) + "% Target Upside";
+                    document.getElementById('rec-reason').innerText = data.reason;
+
+                    const confMatch = data.reason ? data.reason.match(/([0-9.]+)%\s*confidence/i) : null;
+                    const slMatch = data.reason ? data.reason.match(/Stop-Loss\s*at\s*₹?([0-9.,]+)/i) : null;
+
+                    if (confMatch) {
+                        document.getElementById('rec-confidence-text').innerText = confMatch[1] + "%";
+                        document.getElementById('rec-confidence-bar').style.width = confMatch[1] + "%";
+                    } else {
+                        document.getElementById('rec-confidence-text').innerText = "N/A (Recalculating)";
+                        document.getElementById('rec-confidence-bar').style.width = "0%";
+                    }
+
+                    if (slMatch) {
+                        const sl = parseFloat(slMatch[1].replace(/,/g, ''));
+                        document.getElementById('rec-stop-loss').innerText = "🛑 Risk Stop-Loss: ₹" + sl.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    } else {
+                        document.getElementById('rec-stop-loss').innerText = "🛑 Risk Stop-Loss: Pending DB Update";
+                    }
+
+                    recBox.style.display = 'block';
+                    document.getElementById('news-header').innerText = `Global Catalysts & News: ${data.symbol}`;
+                    const newsContainer = document.querySelector('.news-feed');
+                    newsContainer.innerHTML = '';
+
+                    if (data.news && data.news.length > 0) {
+                        data.news.forEach(article => {
+                            newsContainer.innerHTML += `
+                                <div class="news-item">
+                                    <a href="${article.url}" target="_blank" class="news-title">${article.title}</a>
+                                    <div class="news-meta">
+                                        <span>📰 ${article.source}</span>
+                                        <span>${article.date}</span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        newsContainer.innerHTML = `<div class="news-item"><p style="color: var(--muted); font-size: 0.9rem;">No verified company news in the last 30 days.</p></div>`;
+                    }
+                }
+            } catch (err) {
+                alert("Failed to reach server. Ensure backend is running.");
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
+
