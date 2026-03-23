@@ -194,7 +194,76 @@
         </div>
     </div>
 
+    <div class="glass-panel p-6 mb-8 mt-6 border-t-4 border-t-yellow-500/50">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+            <i class="fas fa-shield-alt text-yellow-500"></i> Safe Haven Assets & Fixed Income
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="commoditiesContainer">
+            <div class="col-span-3 text-center py-4 text-slate-500 font-mono animate-pulse" id="commLoader">
+                Fetching Global Commodity Data...
+            </div>
+        </div>
+    </div>
+
     <script>
+        // --- COMMODITIES & FD FETCH LOGIC ---
+        async function fetchCommodities() {
+            try {
+                const response = await fetch('/api/commodities');
+                const data = await response.json();
+                
+                if (data.status === "success") {
+                    const container = document.getElementById('commoditiesContainer');
+                    const loader = document.getElementById('commLoader');
+                    loader.style.display = 'none';
+
+                    // Formatting helper for Green/Red percentages
+                    const formatChange = (val) => val >= 0 
+                        ? `<span class="text-neon-green"><i class="fas fa-caret-up"></i> ${val}%</span>` 
+                        : `<span class="text-neon-red"><i class="fas fa-caret-down"></i> ${val}%</span>`;
+
+                    container.innerHTML = `
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/20 dark:to-black border border-yellow-200 dark:border-yellow-600/30 rounded-xl p-4 shadow-sm">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-slate-800 dark:text-yellow-500"><i class="fas fa-coins mr-1"></i> 24K Gold (10g)</span>
+                                <span class="text-xs font-mono bg-white dark:bg-black px-2 py-1 rounded text-yellow-600 dark:text-yellow-400">Hyderabad</span>
+                            </div>
+                            <div class="text-2xl font-mono text-slate-900 dark:text-white mb-1">
+                                ₹${data.gold.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </div>
+                            <div class="text-sm font-bold">${formatChange(data.gold.change)}</div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-slate-100 to-gray-200 dark:from-gray-800/40 dark:to-black border border-slate-300 dark:border-gray-600/50 rounded-xl p-4 shadow-sm">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-slate-800 dark:text-gray-300"><i class="fas fa-cubes mr-1"></i> 999 Silver (1kg)</span>
+                                <span class="text-xs font-mono bg-white dark:bg-black px-2 py-1 rounded text-slate-500 dark:text-gray-400">Hyderabad</span>
+                            </div>
+                            <div class="text-2xl font-mono text-slate-900 dark:text-white mb-1">
+                                ₹${data.silver.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </div>
+                            <div class="text-sm font-bold">${formatChange(data.silver.change)}</div>
+                        </div>
+
+                        <div class="bg-white dark:bg-black/40 border border-slate-200 dark:border-gray-800 rounded-xl p-4 shadow-sm">
+                            <div class="font-bold text-slate-800 dark:text-blue-400 mb-3"><i class="fas fa-piggy-bank mr-1"></i> Top Guaranteed Yields (FD)</div>
+                            <div class="space-y-2">
+                                ${data.fd.map(item => `
+                                    <div class="flex justify-between items-center text-sm border-b border-slate-100 dark:border-gray-800 pb-1">
+                                        <span class="text-slate-600 dark:text-gray-400 font-mono">${item.bank}</span>
+                                        <span class="font-bold text-green-600 dark:text-green-400">${item.rate}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error("Failed to load commodities", e);
+            }
+        }
+
         // --- WEBSOCKET LISTENER FOR LIVE PRICES ---
         function initLiveMarketStream(currentTicker) {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -251,9 +320,11 @@
 
         // Start the stream listener when page loads, passing the server-rendered ticker
         document.addEventListener('DOMContentLoaded', () => {
+            fetchCommodities(); // Fetches Gold/Silver/FD on load
             runDiscovery();
             initLiveMarketStream("{{ ticker }}");
         });
+
         // --- THEME TOGGLE LOGIC ---
         const themeToggleBtn = document.getElementById('themeToggle');
         
@@ -270,10 +341,8 @@
         });
 
         // --- QUANTUM GENERATOR LOGIC ---
-        document.addEventListener('DOMContentLoaded', () => {
-            runDiscovery();
-        });
-
+        // (runDiscovery is already called in the DOMContentLoaded event above)
+        
         async function runDiscovery() {
             const btn = document.getElementById('scanBtn');
             const loader = document.getElementById('loader');

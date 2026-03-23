@@ -459,3 +459,46 @@ async def user_profile(request: Request):
     conn.close()
 
     return templates.TemplateResponse("profile.html", {"request": request, "username": session, "history": history})
+
+@app.get("/api/commodities")
+async def get_commodities():
+    """Fetches Live ETF percentage changes and applies them to physical Hyderabad retail prices."""
+    try:
+        gold = await asyncio.to_thread(fetch_market_data_safe, "GOLDBEES.NS")
+        silver = await asyncio.to_thread(fetch_market_data_safe, "SILVERBEES.NS")
+        
+        # 🛡️ THE FINTECH HACK: Local Market Calibration
+        # Base 24K Gold price in Hyderabad (₹13,565 per gram = ₹1,35,650 per 10g)
+        hyd_gold_10g_base = 135650.00
+        
+        # Base Silver price in Hyderabad (~₹93,000 per 1kg based on recent physical premiums)
+        hyd_silver_1kg_base = 93000.00
+        
+        # Calculate the live percentage change from the stock market ETFs
+        gold_change_pct = ((gold["current"] - gold["prev_close"]) / gold["prev_close"]) if gold and gold["prev_close"] else 0
+        silver_change_pct = ((silver["current"] - silver["prev_close"]) / silver["prev_close"]) if silver and silver["prev_close"] else 0
+        
+        # Apply the live market fluctuation to your local physical price
+        live_hyd_gold = hyd_gold_10g_base * (1 + gold_change_pct)
+        live_hyd_silver = hyd_silver_1kg_base * (1 + silver_change_pct)
+
+        fd_rates = [
+            {"bank": "SBI (1-2 Yr)", "rate": "6.80%"},
+            {"bank": "HDFC (15 Mo)", "rate": "7.25%"},
+            {"bank": "Post Office", "rate": "7.40%"}
+        ]
+        
+        return {
+            "status": "success",
+            "gold": {
+                "price": live_hyd_gold,
+                "change": round(gold_change_pct * 100, 2)
+            },
+            "silver": {
+                "price": live_hyd_silver,
+                "change": round(silver_change_pct * 100, 2)
+            },
+            "fd": fd_rates
+        }
+    except Exception as e:
+        return {"error": str(e)}
