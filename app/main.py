@@ -9,12 +9,14 @@ import json
 import sqlite3
 import requests
 import re
+import random
+import string
 import yfinance as yf
 from fastapi import Form, Response, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 import bcrypt
 
-# 📢 1. CONFIGURE NEW GEMINI AI SDK
+# 📢 1. CONFIGURE GEMINI AI SDK
 from google import genai
 from dotenv import load_dotenv
 load_dotenv()
@@ -43,12 +45,13 @@ def _call_gemini(prompt: str):
             continue
     return None, f"Google API Error: {last_error}"
 
+# 📢 2. IMPORT INTERNAL MODULES
 from app.ml.engine import PredictionEngine
 from app.ml.sentiment import get_news_sentiment
 from app.services.websocket import AngelOneWebSocket 
 from app.core.config import settings
 
-# --- QUANTUM LIBRARIES ---
+# 📢 3. QUANTUM LIBRARIES (QISKIT)
 from qiskit_optimization.applications import Knapsack
 from qiskit_optimization.algorithms import MinimumEigenOptimizer
 
@@ -64,18 +67,17 @@ except ImportError:
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# 🛡️ MASTER PATH CONFIGURATION
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 🛡️ DYNAMIC FOLDER ROUTING (Works on any OS)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # This gets the /app folder
+ROOT_DIR = os.path.abspath(os.path.join(BASE_DIR, "..")) # This goes up one level to root
 
-# 1. Point to project(1)/templates
-templates_dir = os.path.abspath(os.path.join(BASE_DIR, "..", "templates"))
+templates_dir = os.path.join(ROOT_DIR, "templates")
 templates = Jinja2Templates(directory=templates_dir)
 
-# 2. Point explicitly to project(1)/market_leaderboard.db
-DB_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "market_leaderboard.db"))
+DB_PATH = os.path.join(ROOT_DIR, "market_leaderboard.db")
 
 
-# --- 🔒 AUTHENTICATION SETUP ---
+# --- 🔒 AUTHENTICATION & PROFILE SETUP ---
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
@@ -83,29 +85,32 @@ def get_password_hash(password):
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
+def generate_user_id():
+    chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"USR-{chars}"
+
 def init_user_db():
-    """Creates the Users and History tables in your REAL SQLite database."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  username TEXT UNIQUE,
-                  password_hash TEXT)''')
-    # 🆕 NEW: Create the history tracking table
-    c.execute('''CREATE TABLE IF NOT EXISTS user_history
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  username TEXT,
-                  symbol TEXT,
-                  action TEXT,
-                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    
+    # Base Users & History Tables
+    c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS user_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, symbol TEXT, action TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                  
+    # Smart Column Upgrader (Adds profile fields without deleting data)
+    new_columns = [("user_id", "TEXT UNIQUE"), ("name", "TEXT"), ("age", "INTEGER"), ("preferred_risk", "TEXT DEFAULT 'moderate'")]
+    for col_name, col_type in new_columns:
+        try:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
+        except sqlite3.OperationalError:
+            pass 
+            
     conn.commit()
     conn.close()
 
 init_user_db() 
 
-# 🆕 NEW: Add this helper function right below init_user_db()
 def log_user_action(username: str, symbol: str, action: str):
-    """Silently logs user activity to the database."""
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -115,9 +120,7 @@ def log_user_action(username: str, symbol: str, action: str):
     except Exception as e:
         print(f"⚠️ Failed to log history: {e}")
 
-init_user_db() 
-
-# --- 2. HELPER FUNCTIONS ---
+# --- 🧠 HELPER FUNCTIONS ---
 def get_latest_news(symbol: str):
     if not settings.NEWS_API_KEY: return []
     search_query = symbol.split('-')[0] 
@@ -135,7 +138,7 @@ def get_latest_news(symbol: str):
                     valid_articles.append({"title": item.get("title"), "url": item.get("url"), "source": item.get("source", {}).get("name", "News"), "date": item.get("publishedAt", "")[:10]})
                 if len(valid_articles) == 3: break
             return valid_articles
-    except Exception as e: print(f"⚠️ News API Error/Timeout: {e}")
+    except: pass
     return []
 
 def calculate_optimized_weights(top_stocks):
@@ -223,9 +226,7 @@ def fetch_market_data_safe(yf_symbol: str):
             "volume": int(hist['Volume'].iloc[-1]), "mcap": fi.get('marketCap', 0), "high_52": fi.get('yearHigh', 0.0), "low_52": fi.get('yearLow', 0.0),
             "pe": pe, "eps": eps, "div_yield": div_yield, "sma_50": sma_50, "sma_200": sma_200, "target_price": target
         }
-    except Exception as e:
-        print(f"⚠️ Safe Fetch Error: {e}")
-        return None
+    except: return None
 
 def resolve_ticker_with_ai(raw_input: str) -> str:
     if not gemini_client: return raw_input.replace(' ', '').upper()
@@ -237,7 +238,7 @@ def resolve_ticker_with_ai(raw_input: str) -> str:
         return resolved
     return raw_input.replace(' ', '').upper()
 
-# --- 3. WEBSOCKET MANAGER ---
+# --- 📡 WEBSOCKET MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -258,7 +259,7 @@ angel_ws = AngelOneWebSocket(manager)
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 Starting Nano Banana Core Engine...")
+    print("🚀 Starting Hybrid Quantum-AI Core Engine...")
     asyncio.create_task(angel_ws.connect_and_stream())
 
 @app.websocket("/ws")
@@ -269,46 +270,46 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# --- 4. API ROUTES ---
-
+# --- 🌐 API ROUTES ---
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("auth.html", {"request": request})
 
 @app.post("/api/signup")
-async def signup(username: str = Form(...), password: str = Form(...)):
-    conn = sqlite3.connect(DB_PATH) # 🛡️ Using Master Path
+async def signup(name: str = Form(...), email: str = Form(...), age: int = Form(...), password: str = Form(...)):
+    conn = sqlite3.connect(DB_PATH) 
     c = conn.cursor()
     try:
         hashed_pw = get_password_hash(password)
-        c.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed_pw))
+        new_id = generate_user_id()
+        c.execute("INSERT INTO users (username, password_hash, user_id, name, age) VALUES (?, ?, ?, ?, ?)", (email, hashed_pw, new_id, name, age))
         conn.commit()
-        return {"status": "success", "message": "Account created! Please log in."}
+        return {"status": "success", "message": f"Account created! Your Secure ID is {new_id}. Please log in."}
     except sqlite3.IntegrityError:
-        return {"error": "Username already exists."}
+        return {"error": "Email is already registered."}
     finally:
         conn.close()
 
 @app.post("/api/login")
-async def login(response: Response, username: str = Form(...), password: str = Form(...)):
-    conn = sqlite3.connect(DB_PATH) # 🛡️ Using Master Path
+async def login(response: Response, login_identifier: str = Form(...), password: str = Form(...)):
+    conn = sqlite3.connect(DB_PATH) 
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username = ?", (username,))
+    if "@" in login_identifier:
+        c.execute("SELECT * FROM users WHERE username = ?", (login_identifier,))
+    else:
+        c.execute("SELECT * FROM users WHERE user_id = ?", (login_identifier.upper(),))
     user = c.fetchone()
     conn.close()
 
-    if not user or not verify_password(password, user['password_hash']):
-        return {"error": "Invalid username or password"}
-
-    response.set_cookie(key="session_token", value=username, httponly=True, max_age=86400) 
+    if not user or not verify_password(password, user['password_hash']): return {"error": "Invalid Email/ID or password"}
+    response.set_cookie(key="session_token", value=user['username'], httponly=True, max_age=86400) 
     return {"status": "success"}
 
 @app.get("/logout")
 async def logout(response: Response):
     response.delete_cookie("session_token")
     return RedirectResponse(url="/login")
-
 
 @app.get("/")
 async def home(request: Request, symbol: str = Query("RELIANCE")):
@@ -319,10 +320,7 @@ async def home(request: Request, symbol: str = Query("RELIANCE")):
         clean_symbol = symbol.upper().replace('-EQ', '').strip()
         resolved_symbol = await asyncio.to_thread(resolve_ticker_with_ai, clean_symbol)
 
-        # 🆕 NEW: Log the search!
-        if resolved_symbol != "UNKNOWN":
-            log_user_action(session, resolved_symbol, "Searched Ticker")
-        
+        if resolved_symbol != "UNKNOWN": log_user_action(session, resolved_symbol, "Searched Ticker")
         if resolved_symbol == "UNKNOWN" or not resolved_symbol:
             return templates.TemplateResponse("index.html", {"request": request, "ticker": symbol.upper(), "current_price": "0.00", "recommendation": "INVALID", "recommendation_class": "hold", "ai_analysis": f"System Alert: '{symbol}' is not recognized.", "sentiment": "N/A", "news": []})
 
@@ -332,8 +330,7 @@ async def home(request: Request, symbol: str = Query("RELIANCE")):
         if not market_data or market_data["current"] == 0.0:
             market_data = {"current": 0.0, "prev_close": 0.0, "open": 0.0, "day_low": 0.0, "day_high": 0.0, "volume": 0, "mcap": 0, "high_52": 0.0, "low_52": 0.0, "pe": "N/A", "eps": "N/A", "div_yield": 0.0, "sma_50": 0.0, "sma_200": 0.0, "target_price": "N/A"}
 
-        current, prev_close, open_price, day_low, day_high, volume, high_52, low_52, mcap, pe, div_yield, eps, sma_50, sma_200, target_price = market_data["current"], market_data["prev_close"], market_data["open"], market_data["day_low"], market_data["day_high"], market_data["volume"], market_data["high_52"], market_data["low_52"], market_data["mcap"], market_data["pe"], market_data["div_yield"], market_data["eps"], market_data["sma_50"], market_data["sma_200"], market_data["target_price"]
-
+        current, day_low, day_high, high_52, low_52, mcap, pe = market_data["current"], market_data["day_low"], market_data["day_high"], market_data["high_52"], market_data["low_52"], market_data["mcap"], market_data["pe"]
         news_articles = await asyncio.to_thread(get_latest_news, resolved_symbol)
         news_titles = [article['title'] for article in news_articles] if news_articles else ["No recent news."]
         
@@ -352,8 +349,8 @@ async def home(request: Request, symbol: str = Query("RELIANCE")):
             
             if ai_text:
                 ai_analysis = ai_text.replace('```html', '').replace('```', '').strip()
-                if ai_analysis.startswith('"') and ai_analysis.endswith('"'): ai_analysis = ai_analysis[1:-1]
-                elif ai_analysis.startswith("'") and ai_analysis.endswith("'"): ai_analysis = ai_analysis[1:-1]
+                if ai_analysis.startswith('"'): ai_analysis = ai_analysis[1:-1]
+                elif ai_analysis.startswith("'"): ai_analysis = ai_analysis[1:-1]
             else: ai_analysis = "AI analysis unavailable."
             
             rec, rec_class = "HOLD", "hold"
@@ -366,8 +363,7 @@ async def home(request: Request, symbol: str = Query("RELIANCE")):
             ai_analysis, rec, rec_class = f"AI Error: {str(e)}", "HOLD", "hold"
 
         return templates.TemplateResponse("index.html", {"request": request, "ticker": resolved_symbol, "current_price": f"{current:,.2f}", "recommendation": rec, "recommendation_class": rec_class, "ai_analysis": ai_analysis, "sentiment": "AI Generated", "news": news_articles})
-    except Exception as e:
-        return HTMLResponse(content=str(e), status_code=500)
+    except Exception as e: return HTMLResponse(content=str(e), status_code=500)
 
 @app.get("/stock/{ticker}")
 async def stock_detail(request: Request, ticker: str):
@@ -381,17 +377,14 @@ async def stock_detail(request: Request, ticker: str):
         market_data = await asyncio.to_thread(fetch_market_data_safe, yf_symbol)
         news_articles = await asyncio.to_thread(get_latest_news, clean_ticker)
         
-        if not market_data:
-            market_data = {"current": 0.0, "prev_close": 0.0, "open": 0.0, "day_low": 0.0, "day_high": 0.0, "volume": 0, "mcap": 0, "high_52": 0.0, "low_52": 0.0, "pe": "N/A", "eps": "N/A", "div_yield": 0.0, "sma_50": 0.0, "sma_200": 0.0, "target_price": "N/A"}
-
+        if not market_data: market_data = {"current": 0.0, "prev_close": 0.0, "open": 0.0, "day_low": 0.0, "day_high": 0.0, "volume": 0, "mcap": 0, "high_52": 0.0, "low_52": 0.0, "pe": "N/A", "eps": "N/A", "div_yield": 0.0, "sma_50": 0.0, "sma_200": 0.0, "target_price": "N/A"}
         return templates.TemplateResponse("stock_detail.html", {"request": request, "ticker": clean_ticker, "data": market_data, "news": news_articles})
-    except Exception as e:
-        return HTMLResponse(content=f"Error loading stock data: {str(e)}", status_code=500)
+    except Exception as e: return HTMLResponse(content=str(e), status_code=500)
 
 @app.get("/api/discover")
 async def discover_best_stock():
     try:
-        conn = sqlite3.connect('market_leaderboard.db') # 🛡️ Using Master Path
+        conn = sqlite3.connect(DB_PATH) 
         conn.row_factory = sqlite3.Row 
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM recommendations WHERE current_price > 50 ORDER BY upside DESC LIMIT 50')
@@ -423,62 +416,63 @@ async def build_portfolio(funds: float = Query(10000.0)):
         allocation_result = await asyncio.to_thread(optimize_portfolio_qaoa, funds, qaoa_recs)
         return {"status": "success", "requested_funds": funds, "data": allocation_result}
     except Exception as e: return {"error": f"Portfolio failed: {str(e)}"}
-
-@app.get("/api/tax-optimize")
-async def optimize_taxes():
-    try:
-        legacy_portfolio = [
-            {"symbol": "ASIANPAINT", "shares": 50, "buy_price": 3200.00, "current_price": 2850.50},
-            {"symbol": "HINDUNILVR", "shares": 100, "buy_price": 2650.00, "current_price": 2240.00},
-            {"symbol": "HDFCBANK", "shares": 40, "buy_price": 1400.00, "current_price": 1450.25},
-            {"symbol": "RELIANCE", "shares": 10, "buy_price": 2400.00, "current_price": 2950.00} 
-        ]
-        harvest_opportunities = []
-        total_loss = 0.0
-        for pos in legacy_portfolio:
-            pnl = (pos["shares"] * pos["current_price"]) - (pos["shares"] * pos["buy_price"])
-            if pnl < -1000:
-                total_loss += abs(pnl)
-                harvest_opportunities.append({"symbol": pos["symbol"], "shares": pos["shares"], "buy_price": pos["buy_price"], "current_price": pos["current_price"], "loss": round(abs(pnl), 2), "tax_saved": round(abs(pnl) * 0.20, 2)})
-        return {"status": "success", "total_harvestable_loss": round(total_loss, 2), "total_tax_savings": round(total_loss * 0.20, 2), "opportunities": sorted(harvest_opportunities, key=lambda x: x['tax_saved'], reverse=True)}
-    except Exception as e: return {"error": str(e)}
     
+# --- 🧑‍🚀 PROFILE & USER ROUTES ---
 @app.get("/profile")
 async def user_profile(request: Request):
-    """Renders the User Profile and History page."""
     session = request.cookies.get("session_token")
-    if not session: 
-        return RedirectResponse(url="/login")
+    if not session: return RedirectResponse(url="/login")
 
-    # Fetch the last 20 actions for this user
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Ro
     c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username = ?", (session,))
+    user_data = c.fetchone()
+    
+    user_dict = dict(user_data) if user_data else {}
+    
+    # THE FIX: If the database returns None (NULL) for old accounts, set a safe default
+    if user_dict.get("user_id") is None: user_dict["user_id"] = "N/A"
+    if user_dict.get("name") is None: user_dict["name"] = "Investor"
+    if user_dict.get("age") is None: user_dict["age"] = 30
+    if user_dict.get("preferred_risk") is None: user_dict["preferred_risk"] = "moderate"
+    
+    user_dict["email"] = session
+
     c.execute("SELECT symbol, action, datetime(timestamp, 'localtime') as ts FROM user_history WHERE username = ? ORDER BY timestamp DESC LIMIT 20", (session,))
     history = c.fetchall()
     conn.close()
 
-    return templates.TemplateResponse("profile.html", {"request": request, "username": session, "history": history})
+    return templates.TemplateResponse("profile.html", {"request": request, "user": user_dict, "history": history})
+
+@app.post("/update-profile")
+async def update_profile(request: Request, name: str = Form(...), age: int = Form(...), risk_preference: str = Form(...)):
+    session = request.cookies.get("session_token")
+    if not session: return RedirectResponse(url="/login")
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("UPDATE users SET name = ?, age = ?, preferred_risk = ? WHERE username = ?", (name, age, risk_preference, session))
+        conn.commit()
+        conn.close()
+    except Exception as e: print(f"Profile Update Error: {e}")
+
+    return RedirectResponse(url="/profile", status_code=303)
+
 
 @app.get("/api/commodities")
 async def get_commodities():
-    """Fetches Live ETF percentage changes and applies them to physical Hyderabad retail prices."""
     try:
         gold = await asyncio.to_thread(fetch_market_data_safe, "GOLDBEES.NS")
         silver = await asyncio.to_thread(fetch_market_data_safe, "SILVERBEES.NS")
         
-        # 🛡️ THE FINTECH HACK: Local Market Calibration
-        # Base 24K Gold price in Hyderabad (₹13,565 per gram = ₹1,35,650 per 10g)
         hyd_gold_10g_base = 135650.00
-        
-        # Base Silver price in Hyderabad (~₹93,000 per 1kg based on recent physical premiums)
         hyd_silver_1kg_base = 93000.00
         
-        # Calculate the live percentage change from the stock market ETFs
         gold_change_pct = ((gold["current"] - gold["prev_close"]) / gold["prev_close"]) if gold and gold["prev_close"] else 0
         silver_change_pct = ((silver["current"] - silver["prev_close"]) / silver["prev_close"]) if silver and silver["prev_close"] else 0
         
-        # Apply the live market fluctuation to your local physical price
         live_hyd_gold = hyd_gold_10g_base * (1 + gold_change_pct)
         live_hyd_silver = hyd_silver_1kg_base * (1 + silver_change_pct)
 
@@ -490,15 +484,8 @@ async def get_commodities():
         
         return {
             "status": "success",
-            "gold": {
-                "price": live_hyd_gold,
-                "change": round(gold_change_pct * 100, 2)
-            },
-            "silver": {
-                "price": live_hyd_silver,
-                "change": round(silver_change_pct * 100, 2)
-            },
+            "gold": {"price": live_hyd_gold, "change": round(gold_change_pct * 100, 2)},
+            "silver": {"price": live_hyd_silver, "change": round(silver_change_pct * 100, 2)},
             "fd": fd_rates
         }
-    except Exception as e:
-        return {"error": str(e)}
+    except Exception as e: return {"error": str(e)}

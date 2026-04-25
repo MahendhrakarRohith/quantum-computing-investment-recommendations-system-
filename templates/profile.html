@@ -14,6 +14,11 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .glass-panel { background: rgba(21, 26, 34, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glow-btn { background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); transition: all 0.3s ease; }
+        .glow-btn:hover { box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5); transform: translateY(-2px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen bg-darkBg text-slate-200 p-6 font-sans">
@@ -24,64 +29,155 @@
         </a>
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-full bg-quantPurple flex items-center justify-center text-white font-bold text-sm shadow-[0_0_10px_rgba(139,92,246,0.5)]">
-                {{ username[0]|upper }}
+                {{ user.name[0]|upper if user.name else 'U' }}
             </div>
-            <span class="font-mono text-sm tracking-widest text-white truncate max-w-[150px] sm:max-w-[250px]" title="{{ username }}">{{ username }}</span>
+            <span class="font-mono text-sm tracking-widest text-white truncate max-w-[150px] sm:max-w-[250px]" title="{{ user.email }}">{{ user.email }}</span>
         </div>
     </div>
 
     <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        <div class="glass-panel p-6 rounded-xl md:col-span-1 h-fit">
+        <div class="glass-panel p-6 rounded-xl md:col-span-1 h-fit flex flex-col justify-between">
             <div class="text-center mb-6">
-                <div class="w-24 h-24 rounded-full bg-gray-800 mx-auto mb-4 flex items-center justify-center text-4xl text-gray-400 border-2 border-quantPurple shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+                <div class="w-24 h-24 rounded-full bg-gray-900 mx-auto mb-4 flex items-center justify-center text-4xl text-quantPurple border-2 border-quantPurple/50 shadow-[0_0_20px_rgba(139,92,246,0.2)]">
                     <i class="fas fa-user-astronaut"></i>
                 </div>
-                <h2 class="text-xl font-bold text-white truncate w-full px-2" title="{{ username }}">{{ username }}</h2>
-                <p class="text-xs text-gray-500 font-mono mt-1">Quant Clearance: Level 1</p>
+                <h2 class="text-xl font-bold text-white truncate w-full px-2" title="{{ user.name }}">{{ user.name }}</h2>
+                <div class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1 inline-block mt-2">
+                    <p class="text-xs text-quantPurple font-mono font-bold">ID: {{ user.user_id }}</p>
+                </div>
+                <p class="text-xs text-gray-400 font-mono mt-2">Age: {{ user.age }} Years</p>
+
+                <div class="mt-4 pt-4 border-t border-gray-800">
+                    <p class="text-[10px] text-gray-500 font-mono uppercase tracking-wider mb-2">Current Strategy</p>
+                    {% if user.preferred_risk == 'safe' %}
+                        <span class="bg-green-500/10 text-green-400 border border-green-500/20 px-3 py-1.5 rounded text-xs font-bold font-mono inline-block w-full">🟢 Safe (Zero Risk)</span>
+                    {% elif user.preferred_risk == 'aggressive' %}
+                        <span class="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded text-xs font-bold font-mono inline-block w-full">🔴 Aggressive (Max Yield)</span>
+                    {% else %}
+                        <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded text-xs font-bold font-mono inline-block w-full">🔵 Moderate (Balanced)</span>
+                    {% endif %}
+                </div>
+
+                {% if user.age >= 60 %}
+                <div class="mt-4 text-[10px] font-bold text-yellow-500 bg-yellow-500/10 p-2 rounded border border-yellow-500/20 text-left leading-tight">
+                    <i class="fas fa-shield-alt mr-1"></i> SENIOR CITIZEN
+                    <span class="block text-gray-400 font-normal mt-1">Capital Protection Mode auto-enabled for safety.</span>
+                </div>
+                {% endif %}
             </div>
 
-            <div class="border-t border-gray-800 pt-6 mt-4">
-                <a href="/logout" class="w-full bg-red-500/10 border border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300 py-3 rounded-lg text-sm font-mono font-bold transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] flex justify-center items-center gap-2">
+            <div class="space-y-3 mt-4 border-t border-gray-800 pt-6">
+                <button onclick="toggleViews()" id="toggleBtn" class="w-full bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white py-2.5 rounded-lg text-sm font-mono transition-all flex justify-center items-center gap-2">
+                    <i class="fas fa-user-edit"></i> EDIT SETTINGS
+                </button>
+                <a href="/logout" class="w-full bg-red-500/10 border border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300 py-2.5 rounded-lg text-sm font-mono font-bold transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] flex justify-center items-center gap-2">
                     <i class="fas fa-sign-out-alt"></i> TERMINATE SESSION
                 </a>
             </div>
         </div>
 
-        <div class="glass-panel p-6 rounded-xl md:col-span-2">
-            <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
-                <i class="fas fa-history text-quantPurple"></i> Terminal Activity Log
-            </h3>
-            <p class="text-xs text-gray-400 mb-6 font-mono border-b border-gray-800 pb-2">Recent searches and graph analytics.</p>
+        <div class="glass-panel p-6 rounded-xl md:col-span-2 relative overflow-hidden">
+            
+            <div id="historyView" class="block transition-opacity duration-300">
+                <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                    <i class="fas fa-history text-quantPurple"></i> Terminal Activity Log
+                </h3>
+                <p class="text-xs text-gray-400 mb-6 font-mono border-b border-gray-800 pb-2">Recent searches and quantum analytics.</p>
 
-            {% if history %}
-            <div class="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                {% for item in history %}
-                <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-gray-800/50 hover:border-gray-700 transition-colors">
-                    <div class="flex items-center gap-4">
-                        {% if item.action == 'Searched Ticker' %}
-                            <div class="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs"><i class="fas fa-search"></i></div>
-                        {% else %}
-                            <div class="w-8 h-8 rounded-full bg-green-500/10 text-green-400 flex items-center justify-center text-xs"><i class="fas fa-chart-line"></i></div>
-                        {% endif %}
-                        <div>
-                            <div class="font-bold text-white text-sm tracking-wider">{{ item.symbol }}</div>
-                            <div class="text-xs text-gray-500 font-mono">{{ item.action }}</div>
+                {% if history %}
+                <div class="space-y-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+                    {% for item in history %}
+                    <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-gray-800/50 hover:border-gray-700 transition-colors">
+                        <div class="flex items-center gap-4">
+                            {% if item.action == 'Searched Ticker' %}
+                                <div class="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs"><i class="fas fa-search"></i></div>
+                            {% else %}
+                                <div class="w-8 h-8 rounded-full bg-green-500/10 text-green-400 flex items-center justify-center text-xs"><i class="fas fa-chart-line"></i></div>
+                            {% endif %}
+                            <div>
+                                <div class="font-bold text-white text-sm tracking-wider">{{ item.symbol }}</div>
+                                <div class="text-xs text-gray-500 font-mono">{{ item.action }}</div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-600 font-mono text-right">
+                            {{ item.ts }}
                         </div>
                     </div>
-                    <div class="text-xs text-gray-600 font-mono text-right">
-                        {{ item.ts }}
-                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                {% else %}
+                <div class="text-center py-10 text-gray-500">
+                    <i class="fas fa-ghost text-4xl mb-3 opacity-20"></i>
+                    <p class="text-sm font-mono">No activity detected yet.</p>
+                </div>
+                {% endif %}
             </div>
-            {% else %}
-            <div class="text-center py-10 text-gray-500">
-                <i class="fas fa-ghost text-4xl mb-3 opacity-20"></i>
-                <p class="text-sm font-mono">No activity detected yet.</p>
+
+            <div id="editView" class="hidden opacity-0 transition-opacity duration-300">
+                <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                    <i class="fas fa-sliders-h text-quantPurple"></i> Algorithm Preferences
+                </h3>
+                <p class="text-xs text-gray-400 mb-6 font-mono border-b border-gray-800 pb-2">Update your parameters and risk tolerance.</p>
+
+                <form action="/update-profile" method="POST" class="space-y-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs text-gray-400 font-mono mb-1 uppercase tracking-wider">Investor Name</label>
+                            <input type="text" name="name" value="{{ user.name }}" class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-quantPurple focus:ring-1 focus:ring-quantPurple outline-none transition-all shadow-inner">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 font-mono mb-1 uppercase tracking-wider">Age (Years)</label>
+                            <input type="number" name="age" value="{{ user.age }}" class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-quantPurple focus:ring-1 focus:ring-quantPurple outline-none transition-all shadow-inner">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-400 font-mono mb-1 uppercase tracking-wider">Default Risk Tolerance</label>
+                        <select name="risk_preference" class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-quantPurple focus:ring-1 focus:ring-quantPurple outline-none transition-all shadow-inner appearance-none cursor-pointer">
+                            <option value="safe" {% if user.preferred_risk == 'safe' %}selected{% endif %}>🟢 Safe (Zero Risk - FDs & Gold)</option>
+                            <option value="moderate" {% if user.preferred_risk == 'moderate' %}selected{% endif %}>🔵 Moderate (Balanced Growth)</option>
+                            <option value="aggressive" {% if user.preferred_risk == 'aggressive' %}selected{% endif %}>🔴 Aggressive (Quantum ML Stocks)</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-4 flex gap-3">
+                        <button type="submit" class="glow-btn text-white px-6 py-3 rounded-lg font-bold text-sm w-full md:w-auto flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+                            <i class="fas fa-save"></i> SAVE PARAMETERS
+                        </button>
+                    </div>
+                </form>
             </div>
-            {% endif %}
+
         </div>
     </div>
+
+    <script>
+        function toggleViews() {
+            const historyView = document.getElementById('historyView');
+            const editView = document.getElementById('editView');
+            const toggleBtn = document.getElementById('toggleBtn');
+
+            if (editView.classList.contains('hidden')) {
+                // Hide Edit, Show History
+                editView.classList.replace('block', 'hidden');
+                editView.classList.replace('opacity-100', 'opacity-0');
+                
+                historyView.classList.replace('hidden', 'block');
+                setTimeout(() => historyView.classList.replace('opacity-0', 'opacity-100'), 50);
+
+                toggleBtn.innerHTML = '<i class="fas fa-user-edit"></i> EDIT SETTINGS';
+            } else {
+                // Hide History, Show Edit
+                historyView.classList.replace('block', 'hidden');
+                historyView.classList.replace('opacity-100', 'opacity-0');
+                
+                editView.classList.replace('hidden', 'block');
+                setTimeout(() => editView.classList.replace('opacity-0', 'opacity-100'), 50);
+
+                toggleBtn.innerHTML = '<i class="fas fa-history"></i> VIEW ACTIVITY LOG';
+            }
+        }
+    </script>
 </body>
 </html>
